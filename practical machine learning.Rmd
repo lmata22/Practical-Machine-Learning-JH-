@@ -1,0 +1,74 @@
+---
+title: "practical machine learning"
+author: "Lluc"
+date: "27/11/2020"
+output: html_document
+---
+
+library(caret)
+library(randomForest)
+
+if (!file.exists('train.csv')) {
+  download.file(url = 'https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv', 
+                destfile = 'train.csv', method = 'curl', quiet = TRUE) 
+}
+
+if (!file.exists('test.csv')) {
+  download.file(url = 'https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv', 
+                destfile = 'test.csv', method = 'curl', quiet = TRUE)
+}
+
+trainRaw <- read.csv('train.csv')
+testRaw <- read.csv('test.csv')
+
+
+str(trainRaw)
+
+
+train <- trainRaw[, 6:ncol(trainRaw)]
+
+
+set.seed(23954)
+inTrain <- createDataPartition(y = train$classe, p = 0.7, list = F)
+training <- train[inTrain, ]
+testing <- train[-inTrain, ]
+
+
+nzv <- nearZeroVar(train, saveMetrics = T)
+keepFeat <- row.names(nzv[nzv$nzv == FALSE, ])
+training <- training[, keepFeat]
+
+
+training <- training[, colSums(is.na(training)) == 0]
+dim(training)
+
+modCtl <- trainControl(method = 'cv', number = 5)
+
+set.seed(2384)
+modRf <- train(classe ~. , data = training, method = 'rf', trControl = modCtl)
+
+modRf$finalModel
+
+predRf <- predict(modRf, newdata = testing)
+confusionMatrix(predRf, testing$classe)$table
+
+confusionMatrix(predRf, testing$classe)$overall[1]
+
+modGbm <- train(classe ~., data = training, method = 'gbm', trControl = modCtl, verbose = F)
+
+modGbm$finalModel
+
+predGbm <- predict(modGbm, newdata = testing)
+confusionMatrix(predGbm, testing$classe)$table
+
+confusionMatrix(predGbm, testing$classe)$overall[1]
+
+
+predRfTest <- predict(modRf, newdata = testRaw)
+predRfTest
+
+
+predGbmTest <- predict(modGbm, newdata = testRaw)
+table(predRfTest, predGbmTest)
+
+
